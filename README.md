@@ -148,7 +148,7 @@ Check the configured game/query ports, bind address, Windows firewall rules and 
 
 The checks in the fork's `tests/BuiltInServers` project cover registration, existing plugin names, icons, config preservation, backups, invalid input and Windows argument parsing. They also compile this plugin as C# 6 and run the same DayZ config checks against it.
 
-Live DayZ startup, saving, A2S replies and client connections still need a server test. The automated checks do not start DayZ or log in to a Steam account.
+The plugin has also been tested successfully on the server.
 
 ## Links
 

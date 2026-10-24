@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/PapaGordon/WindowsGSM.DayZ/releases/latest"><img src="https://img.shields.io/badge/version-0.1.0-62734B" alt="Version 0.1.0"></a>
-  <a href="https://github.com/PapaGordon/WindowsGSM/releases/tag/v1.25.4.0"><img src="https://img.shields.io/badge/WindowsGSM-MeFriendos%20v1.25.4.0-38CDD4" alt="MeFriendos WindowsGSM v1.25.4.0"></a>
+  <a href="https://github.com/PapaGordon/WindowsGSM.DayZ/releases/latest"><img src="https://img.shields.io/badge/version-0.1.1-62734B" alt="Version 0.1.1"></a>
+  <a href="https://github.com/PapaGordon/WindowsGSM/releases/tag/v1.25.4.1"><img src="https://img.shields.io/badge/WindowsGSM-MeFriendos%20v1.25.4.1-38CDD4" alt="MeFriendos WindowsGSM v1.25.4.1"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
 </p>
 
@@ -29,6 +29,7 @@ The [MeFriendos WindowsGSM fork](https://github.com/PapaGordon/WindowsGSM) alrea
 - Backs up changed configs to `.bak` and leaves unchanged files alone.
 - Combines manual and selected mods into one ordered list without duplicates.
 - Uses `DZSALModServer.exe` when installed, or the normal DayZ executable otherwise.
+- Displays the active DayZ RPT in Embed Console and keeps the native window available through Toggle Console.
 - Tries CTRL+C before WindowsGSM's final stop fallback.
 - Leaves firewall management to WindowsGSM.
 
@@ -48,7 +49,7 @@ The [MeFriendos WindowsGSM fork](https://github.com/PapaGordon/WindowsGSM) alrea
 | Default mission | `dayzOffline.chernarusplus` |
 | SteamCMD login | Configured Steam account |
 | Server query | A2S |
-| Console | Native DayZ window |
+| Console | Embedded RPT output and native DayZ window |
 
 The default additional parameters are:
 
@@ -64,7 +65,7 @@ WindowsGSM adds the game port, bind address and mission path. Add `-netLog` when
 - A configured Steam account with access to the DayZ Server files.
 - The mission and any mod files you want to use.
 
-The plugin was checked against MeFriendos WindowsGSM v1.25.4.0. Other builds need the `SteamCMDAgent` and `SteamCMD.UpdateEx` APIs used by this plugin. Game files and mods are downloaded separately.
+The plugin was checked against MeFriendos WindowsGSM v1.25.4.1. Other builds need the `SteamCMDAgent` and `SteamCMD.UpdateEx` APIs used by this plugin. Game files and mods are downloaded separately.
 
 ## Installation
 
@@ -118,11 +119,13 @@ The MeFriendos fork keeps its built-in DayZ Addons UI. Other WindowsGSM builds m
 
 The plugin does not create or remove firewall rules. Use WindowsGSM's **Auto Firewall** setting or your own port rules. Router forwarding is a separate step.
 
-If you install `DZSALModServer.exe` beside DayZ, the plugin uses it automatically. Both executables need their application rules when using automatic firewall handling. MeFriendos WindowsGSM v1.25.4.0 manages both paths centrally. Remove the launcher to return to the normal DayZ executable.
+If you install `DZSALModServer.exe` beside DayZ, the plugin uses it automatically. Both executables need their application rules when using automatic firewall handling. MeFriendos WindowsGSM v1.25.4.1 manages both paths centrally. Remove the launcher to return to the normal DayZ executable.
 
 ## Console and stopping
 
-DayZ uses its native console. The plugin does not redirect unsupported stdin/stdout streams into the embedded console. Use the profile logs for RPT and admin output.
+Enable **Embed Console**, then restart the DayZ server. The plugin follows the active DayZ RPT in the folder selected by `-profiles`, including new log files and final shutdown lines. It adds `-doLogs` for this mode when missing. Remove `-noLogs` if you want RPT output.
+
+This is a log view, so it does not accept server commands. The native DayZ window remains available through **Toggle Console**.
 
 Stop first sends CTRL+C and waits up to 30 seconds. It then tries closing the native window. WindowsGSM can still force the process to stop if neither works. For scheduled shutdowns with player warnings, use DayZ's [messages.xml mechanism](https://community.bistudio.com/wiki/DayZ:Server_Messages) and check the RPT log for a completed shutdown.
 
@@ -148,7 +151,7 @@ Check the configured game/query ports, bind address, Windows firewall rules and 
 
 The checks in the fork's `tests/BuiltInServers` project cover registration, existing plugin names, icons, config preservation, backups, invalid input and Windows argument parsing. They also compile this plugin as C# 6 and run the same DayZ config checks against it.
 
-The plugin has also been tested successfully on the server.
+The fork's `tests/DayZConsole` checks cover RPT updates, UTF-8 text, log rotation, final output and hidden-window handling for both the built-in server and this standalone plugin.
 
 ## Links
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="DayZ.cs/author.png" alt="MeFriendos" width="120">
+  <img src="DayZ.cs/DayZ.png" alt="DayZ" width="128">
 </p>
 
 <h1 align="center">WindowsGSM.DayZ</h1>
@@ -9,14 +9,23 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/PapaGordon/WindowsGSM.DayZ/releases/latest"><img src="https://img.shields.io/badge/version-0.1.1-62734B" alt="Version 0.1.1"></a>
-  <a href="https://github.com/PapaGordon/WindowsGSM/releases/tag/v1.25.4.1"><img src="https://img.shields.io/badge/WindowsGSM-MeFriendos%20v1.25.4.1-38CDD4" alt="MeFriendos WindowsGSM v1.25.4.1"></a>
+  <a href="https://github.com/PapaGordon/WindowsGSM.DayZ/releases/latest"><img src="https://img.shields.io/badge/version-0.1.2-62734B" alt="Version 0.1.2"></a>
+  <a href="https://github.com/PapaGordon/WindowsGSM/releases/latest"><img src="https://img.shields.io/badge/WindowsGSM-MeFriendos%20latest-38CDD4" alt="Latest MeFriendos WindowsGSM"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
 </p>
 
 Installs and updates the official DayZ Server through SteamCMD. The name, ports, slots and mission come from the WindowsGSM settings. Your passwords and gameplay settings stay in the server config.
 
 The [MeFriendos WindowsGSM fork](https://github.com/PapaGordon/WindowsGSM) already includes this DayZ implementation. Use its existing **DayZ Dedicated Server** entry. This separate plugin remains available for other compatible WindowsGSM builds.
+
+
+## WindowsGSM and Steam login
+
+Use the [latest MeFriendos WindowsGSM release](https://github.com/PapaGordon/WindowsGSM/releases/latest). This server is already built into that fork, so select its normal built-in entry there. The standalone plugin remains available for other compatible WindowsGSM builds.
+
+This plugin uses WindowsGSM's central SteamCMD installer for account login. On MeFriendos WindowsGSM v1.25.4.2 or newer it accepts both legacy plaintext credentials and the encrypted `steamPassEncrypted` field. Run WGSM under the Windows user that encrypted the password. [Password setup](https://github.com/PapaGordon/WindowsGSM/blob/main/STEAM-CREDENTIALS.md). Other forks need their own support for this encrypted format; updating this plugin cannot add it to an older host.
+
+The plugin leaves firewall management to the host. On other WindowsGSM builds, configure game/query port rules manually if the host does not manage them. Router forwarding is separate.
 
 ## Features
 
@@ -164,3 +173,6 @@ The fork's `tests/DayZConsole` checks cover RPT updates, UTF-8 text, log rotatio
 ## License
 
 Made by PapaGordon for MeFriendos. See [LICENSE](LICENSE).
+## Workshop updates before start
+
+Optional: create a per-server WorkshopMods.cfg to download and stage configured mods before each start. Steam subscriptions alone do not update server mod folders. See [setup, backups and recovery](WORKSHOP.md). Unlisted mods are kept. The updater is included in this plugin and uses the host's SteamCMD login handling.

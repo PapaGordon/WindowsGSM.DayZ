@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2 - 2026-10-29
+
+- Adds optional Workshop updates before server start, staged mod deployment, managed signing keys and rollback. See WORKSHOP.md.
+
+- Refreshes the README links, current WindowsGSM guidance and Steam credential compatibility notes.
+- Uses the current canonical repository URL.
+
+
 ## 0.1.1 - 2026-10-24
 
 - Adds RPT output to Embed Console, using the configured profile folder.

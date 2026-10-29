@@ -120,7 +120,7 @@ Install the mod folders and signing keys, then add their names to **Server Start
 -config=serverDZ.cfg -profiles=profile -doLogs -adminLog -freezeCheck "-mod=@CF;@MyMod" "-serverMod=@ServerOnly"
 ```
 
-An existing `configs\DayZActivatedMods.cfg` is merged with `-mod`, keeping the order and removing duplicates. `-serverMod` stays separate. The plugin does not download or update Workshop mods.
+An existing `configs\DayZActivatedMods.cfg` is merged with `-mod`, keeping the order and removing duplicates. `-serverMod` stays separate. Without WorkshopMods.cfg, install and update mod files yourself. Optional pre-start downloads are described in [Workshop updates](WORKSHOP.md).
 
 The MeFriendos fork keeps its built-in DayZ Addons UI. Other WindowsGSM builds may only offer that UI for their original DayZ entry; use the start parameters when it is unavailable.
 

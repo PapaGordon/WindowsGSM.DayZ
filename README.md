@@ -172,7 +172,7 @@ The fork's `tests/DayZConsole` checks cover RPT updates, UTF-8 text, log rotatio
 
 ## License
 
-Made by PapaGordon for MeFriendos. See [LICENSE](LICENSE).
+Released under the [MIT License](LICENSE).
 ## Workshop updates before start
 
 Optional: create a per-server WorkshopMods.cfg to download and stage configured mods before each start. Steam subscriptions alone do not update server mod folders. See [setup, backups and recovery](WORKSHOP.md). Unlisted mods are kept. The updater is included in this plugin and uses the host's SteamCMD login handling.

@@ -1,7 +1,5 @@
 # DayZ and Arma 3 Workshop updates
 
-Made by PapaGordon
-
 WGSM v1.25.4.4 can check and download configured Workshop mods before each DayZ or Arma 3 start, including scheduled restarts. Steam subscriptions alone do not configure a dedicated server. This is separate from the **Update on start** setting for the server executable.
 
 ## Setup

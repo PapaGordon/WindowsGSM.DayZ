@@ -23,7 +23,7 @@ The [MeFriendos WindowsGSM fork](https://github.com/PapaGordon/WindowsGSM) alrea
 
 Use the [latest MeFriendos WindowsGSM release](https://github.com/PapaGordon/WindowsGSM/releases/latest). This server is already built into that fork, so select its normal built-in entry there. The standalone plugin remains available for other compatible WindowsGSM builds.
 
-This plugin uses WindowsGSM's central SteamCMD installer for account login. On MeFriendos WindowsGSM v1.25.4.2 or newer it accepts both legacy plaintext credentials and the encrypted `steamPassEncrypted` field. Run WGSM under the Windows user that encrypted the password. [Password setup](https://github.com/PapaGordon/WindowsGSM/blob/main/STEAM-CREDENTIALS.md). Other forks need their own support for this encrypted format; updating this plugin cannot add it to an older host.
+This plugin uses WindowsGSM's central SteamCMD installer for account login. On MeFriendos WindowsGSM v1.25.4.2 or newer it accepts both legacy plaintext credentials and the encrypted `steamPassEncrypted` field. Run WGSM under the Windows user that encrypted the password. [Password setup](https://github.com/PapaGordon/WindowsGSM/blob/main/docs/operations/steam-credentials.md). Other forks need their own support for this encrypted format; updating this plugin cannot add it to an older host.
 
 The plugin leaves firewall management to the host. On other WindowsGSM builds, configure game/query port rules manually if the host does not manage them. Router forwarding is separate.
 

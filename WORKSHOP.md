@@ -5,7 +5,7 @@ WGSM v1.25.4.4 can check and download configured Workshop mods before each DayZ 
 ## Setup
 
 1. Stop the server and keep a backup.
-2. Set up the Steam account in WGSM. For encrypted passwords, follow [Steam credentials](https://github.com/PapaGordon/WindowsGSM/blob/main/STEAM-CREDENTIALS.md). The account needs access to the requested Workshop items. Steam Guard or missing access can stop unattended downloads.
+2. Set up the Steam account in WGSM. For encrypted passwords, follow [Steam credentials](https://github.com/PapaGordon/WindowsGSM/blob/main/docs/operations/steam-credentials.md). The account needs access to the requested Workshop items. Steam Guard or missing access can stop unattended downloads.
 3. Create `servers/<server ID>/configs/WorkshopMods.cfg` beside that server's other WGSM configuration files.
 4. Add one individual Workshop item per line, in dependency/load order:
 

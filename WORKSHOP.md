@@ -1,47 +1,66 @@
-# DayZ and Arma 3 Workshop updates
+# Workshop mods
 
-WGSM v1.25.4.4 can check and download configured Workshop mods before each DayZ or Arma 3 start, including scheduled restarts. Steam subscriptions alone do not configure a dedicated server. This is separate from the **Update on start** setting for the server executable.
+The plugin can keep your DayZ server's Workshop mods up to date. Before every start, including scheduled restarts, it asks Steam for new versions of the mods you listed and installs them into your server folder. Subscribing to mods in Steam doesn't do anything for a dedicated server, the list below is what counts. The DayZ server itself is still updated through **Update on start**.
 
-## Setup
+The built-in DayZ server in [MeFriendos WindowsGSM](https://github.com/PapaGordon/WindowsGSM) works exactly the same way.
 
-1. Stop the server and keep a backup.
-2. Set up the Steam account in WGSM. For encrypted passwords, follow [Steam credentials](https://github.com/PapaGordon/WindowsGSM/blob/main/docs/operations/steam-credentials.md). The account needs access to the requested Workshop items. Steam Guard or missing access can stop unattended downloads.
-3. Create `servers/<server ID>/configs/WorkshopMods.cfg` beside that server's other WGSM configuration files.
-4. Add one individual Workshop item per line, in dependency/load order:
+## Set it up
+
+1. Stop the server and make a backup.
+2. Save a Steam account in WindowsGSM that can download the mods. For encrypted passwords, see [Steam account and password](https://github.com/PapaGordon/WindowsGSM/blob/main/docs/operations/steam-credentials.md).
+3. Create the file `servers\<server ID>\configs\WorkshopMods.cfg`, next to the server's other WindowsGSM settings.
+4. Add one line for each mod and start the server.
 
 ```text
-# Replace these example IDs and folder names with your own mods.
-123456789|@Dependency|mod
-234567891|@Gameplay|mod
-345678912|@AdminTools|servermod
+# Workshop ID | folder on the server | mod or servermod
+1559212036|@CF|mod
+2545327648|@Dabs_Framework|mod
+1828439124|@VPPAdminTools|mod
 ```
 
-The format is `item ID|@target folder|mod` or `item ID|@target folder|servermod`. Use the numeric `id=` from the mod's Workshop URL, not a collection ID. Folder names may contain letters, numbers, underscores and hyphens after `@`. Entries are merged into the existing `-mod` / `-serverMod` arguments. Manual entries and DayZActivatedMods.cfg remain supported; avoid specifying the same mod through two different paths.
+Each line has three parts:
 
-Without this file, or with only comments, nothing is downloaded and the existing start behavior stays in place. Removing an entry stops managing that folder; it does not uninstall the mod or remove its manually configured startup argument.
+- **Workshop ID:** the number after `id=` in the mod's Workshop link. Use the ID of the mod itself, not of a collection.
+- **Folder:** the name the mod gets in your server folder. You choose it. It has to start with `@` and may contain letters, numbers, `_` and `-`.
+- **`mod` or `servermod`:** `mod` for mods players also need, `servermod` for mods that only run on the server.
 
-## What gets replaced
+Mods load in the order of the list, so put dependencies like CF above the mods that need them. Lines starting with `#` are comments. Without this file, or with only comments in it, nothing is downloaded and the server starts as before.
 
-Each listed target folder is managed as a complete Workshop copy. Its previous contents, including files removed by the mod author, are replaced. Keep persistent mod settings outside these folders, as the mod's own instructions require. **Unlisted mod folders and manual signing keys are kept.**
+The folder name is what links a mod to your server. Steam only knows the Workshop ID, so the plugin always installs that ID into the folder from your list, no matter what the mod is called on the Workshop. If you rename a mod folder, change it in the list too. Otherwise the next start creates a new folder and the old one stays behind unused.
 
-All listed downloads must finish successfully before activation. SteamCMD's exit code and a success receipt for every item are checked. Mods whose files (names, sizes and modification times) and keys are unchanged are left alone. Changed content is staged before any live mod folder is replaced. A failed activation restores previous folders and keys.
+The listed folders are added to `-mod` and `-serverMod` for you. Mods you manage by hand can stay in your start parameters or in `DayZActivatedMods.cfg`. Just don't list the same mod in two places. When you remove a line, the plugin stops updating that mod. The folder and its start parameter stay until you remove them yourself.
 
-If the download, the Steam login or the replacement fails, the server starts with the mods that are already installed and the WGSM log shows a `[Notice]` with the reason. Check it when a mod update is missing, for example after an unanswered Steam Guard request. The start is only cancelled when a configured mod folder does not exist yet, the list is invalid or a recovery is pending.
+## What happens on every start
 
-Downloads have a 30-minute timeout and do not open an interactive Steam login window. If SteamCMD exits before it reaches the login, the download is retried once. Workshop jobs sharing the SteamCMD directory are serialized by a file lock. Another start waits up to ten minutes for it and then uses the installed mods. Avoid concurrent manual SteamCMD operations in the same installation.
+1. The plugin signs in to Steam with the saved login and asks for all listed mods. Steam only downloads what changed since the last time.
+2. It compares each downloaded mod with the folder on your server. Mods that didn't change are left alone, so a restart without mod updates copies nothing.
+3. Changed mods replace their folder completely, so files the mod author removed disappear too. Their `.bikey` signing keys are copied to `serverfiles\keys`.
+4. The server starts with the updated mods.
 
-The updater keeps at least 5 GB free on the drives of the server, the download cache and SteamCMD. With less space it skips the update, because SteamCMD can lose its saved login on a full drive and then asks for Steam Guard again. The download cache under `configs/workshop-state-<game app ID>/download` stays in place so SteamCMD only downloads changes.
+Keep mod settings that you edit yourself outside the mod folders, as the mod authors describe. Anything inside a listed folder is replaced on the next update. Folders and keys that are not in your list are never touched.
 
-Included `.bikey` files are installed in `serverfiles/keys` with `wgsm_<game app ID>_<item ID>_` prefixes. These owned keys are tracked with SHA-256 hashes and rotated on subsequent updates. Modified owned keys cause a conflict instead of being overwritten. Existing unprefixed keys are retained; remove any obsolete manually installed keys yourself after checking which mods use them. Signature verification settings are never disabled.
+## If something goes wrong
 
-DayZ downloads use Workshop app **221100**, Arma 3 uses **107410**. The dedicated server executable still uses its normal server app ID. No account subscription changes are made, collections are not expanded, and mod-specific installation scripts are not run.
+If Steam can't sign in, a download fails or a mod can't be replaced, the server still starts with the mods it already has. The WindowsGSM log then shows a line starting with `[Notice]` that says why. If an update you expected is missing, look there first. A common cause is a Steam Guard request nobody confirmed.
 
-## Backups and recovery
+The start is only cancelled when a mod from the list has never been installed, the list has a mistake in it, or an earlier update was interrupted (see below).
 
-The files replaced by the latest update remain under `serverfiles/.wgsm-workshop-backups/<timestamp-id>/previous`. After the next successful update, the older backup is deleted, so only one is kept. Staged copies are removed once the update is active or has failed.
+A few more things to know:
 
-If WGSM or the machine stops during activation, the next start refuses to proceed while `configs/workshop-state-<game app ID>/pending.txt` exists. It lists the transaction directory and destination paths in order. Numbered files/folders in `previous` correspond to that list starting at zero. While the server is stopped, restore the available previous entries to their listed destinations and check every destination before removing `pending.txt`. Entries without a previous copy may have been newly installed. Keep the whole transaction until recovery is confirmed. Do not delete the marker just to bypass recovery.
+- The plugin keeps at least 5 GB free on the drive. With less space it skips the update, because SteamCMD can lose its saved Steam login on a full drive.
+- Downloads stop after 30 minutes. If SteamCMD quits before it even reaches the Steam login, the plugin tries once more.
+- Only one Workshop update runs at a time per SteamCMD folder. A second server waits up to ten minutes and then starts with its installed mods. Don't run SteamCMD by hand while servers are starting.
+- The downloads are cached in `configs\workshop-state-221100\download`. Leave that folder in place, otherwise Steam has to download every mod again.
 
-The standalone [DayZ](https://github.com/PapaGordon/WindowsGSM.DayZ) and [Arma 3](https://github.com/PapaGordon/WindowsGSM.ARMA3) plugins include the same updater. The SteamCMD credential format still depends on the host: MeFriendos WGSM v1.25.4.2 or newer understands its encrypted field; another fork needs its own support. Do not install these plugins on top of their built-in MeFriendos entries.
+## Backups
 
-Checks use isolated download/process fixtures, synthetic encrypted credentials and filesystem rollback cases. Real Steam authentication, Steam Guard, downloads from an account and multiplayer joins still need checking on the target server.
+When mods are replaced, the old versions go to `serverfiles\.wgsm-workshop-backups`. Only the latest backup is kept. The previous one is deleted after the next successful update, so the folder can't fill up your drive.
+
+If WindowsGSM or the machine stops in the middle of replacing mods, the next start is blocked and you find `configs\workshop-state-221100\pending.txt`. It lists the backup folder and every path that was being replaced, in order. The numbered entries in the backup's `previous` folder belong to that list, starting at 0. With the server stopped, copy them back to their paths, check that the mods are complete and then delete `pending.txt`. Entries without a backup copy were new installs. Please don't delete `pending.txt` just to get the server running, or you may start with half-copied mods.
+
+## Details
+
+- Signing keys get the prefix `wgsm_221100_<Workshop ID>_`, so the plugin knows which keys it manages. If you edit one of them, the update stops with a conflict instead of overwriting your change. Keys you added yourself stay. Remove old ones only when no mod needs them anymore.
+- DayZ mods come from Workshop app **221100**. The server itself keeps its app ID `223350`.
+- The plugin doesn't change your Steam subscriptions, doesn't expand collections and doesn't run install scripts that some mods ship with.
+- Don't install this plugin on top of the built-in DayZ server in MeFriendos WindowsGSM. Use one or the other.

@@ -24,7 +24,13 @@ Without this file, or with only comments, nothing is downloaded and the existing
 
 Each listed target folder is managed as a complete Workshop copy. Its previous contents, including files removed by the mod author, are replaced. Keep persistent mod settings outside these folders, as the mod's own instructions require. **Unlisted mod folders and manual signing keys are kept.**
 
-All listed downloads must finish successfully before activation. SteamCMD's exit code and a success receipt for every item are checked. Content is staged before any live mod folder is replaced. A failed activation restores previous folders and keys; a failed download cancels the start. Downloads have a 30-minute timeout and do not open an interactive Steam login window. Workshop jobs sharing the SteamCMD directory are serialized by a file lock; if another job holds it, this start fails and can be retried after that job finishes. Avoid concurrent manual SteamCMD operations in the same installation.
+All listed downloads must finish successfully before activation. SteamCMD's exit code and a success receipt for every item are checked. Mods whose files (names, sizes and modification times) and keys are unchanged are left alone. Changed content is staged before any live mod folder is replaced. A failed activation restores previous folders and keys.
+
+If the download, the Steam login or the replacement fails, the server starts with the mods that are already installed and the WGSM log shows a `[Notice]` with the reason. Check it when a mod update is missing, for example after an unanswered Steam Guard request. The start is only cancelled when a configured mod folder does not exist yet, the list is invalid or a recovery is pending.
+
+Downloads have a 30-minute timeout and do not open an interactive Steam login window. If SteamCMD exits before it reaches the login, the download is retried once. Workshop jobs sharing the SteamCMD directory are serialized by a file lock. Another start waits up to ten minutes for it and then uses the installed mods. Avoid concurrent manual SteamCMD operations in the same installation.
+
+The updater keeps at least 5 GB free on the drives of the server, the download cache and SteamCMD. With less space it skips the update, because SteamCMD can lose its saved login on a full drive and then asks for Steam Guard again. The download cache under `configs/workshop-state-<game app ID>/download` stays in place so SteamCMD only downloads changes.
 
 Included `.bikey` files are installed in `serverfiles/keys` with `wgsm_<game app ID>_<item ID>_` prefixes. These owned keys are tracked with SHA-256 hashes and rotated on subsequent updates. Modified owned keys cause a conflict instead of being overwritten. Existing unprefixed keys are retained; remove any obsolete manually installed keys yourself after checking which mods use them. Signature verification settings are never disabled.
 
@@ -32,7 +38,7 @@ DayZ downloads use Workshop app **221100**, Arma 3 uses **107410**. The dedicate
 
 ## Backups and recovery
 
-Previous files remain under `serverfiles/.wgsm-workshop-backups/<timestamp-id>/previous`. The `prepared` folder contains staged files that have not been activated. Backups are kept so you can decide when to remove them after checking the server.
+The files replaced by the latest update remain under `serverfiles/.wgsm-workshop-backups/<timestamp-id>/previous`. After the next successful update, the older backup is deleted, so only one is kept. Staged copies are removed once the update is active or has failed.
 
 If WGSM or the machine stops during activation, the next start refuses to proceed while `configs/workshop-state-<game app ID>/pending.txt` exists. It lists the transaction directory and destination paths in order. Numbered files/folders in `previous` correspond to that list starting at zero. While the server is stopped, restore the available previous entries to their listed destinations and check every destination before removing `pending.txt`. Entries without a previous copy may have been newly installed. Keep the whole transaction until recovery is confirmed. Do not delete the marker just to bypass recovery.
 

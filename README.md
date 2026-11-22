@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/PapaGordon/WindowsGSM.DayZ/releases/latest"><img src="https://img.shields.io/badge/version-0.1.2-62734B" alt="Version 0.1.2"></a>
+  <a href="https://github.com/PapaGordon/WindowsGSM.DayZ/releases/latest"><img src="https://img.shields.io/badge/version-0.1.3-62734B" alt="Version 0.1.3"></a>
   <a href="https://github.com/PapaGordon/WindowsGSM/releases/latest"><img src="https://img.shields.io/badge/WindowsGSM-MeFriendos%20latest-38CDD4" alt="Latest MeFriendos WindowsGSM"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
 </p>

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 - 2026-11-22
+
+- Starts the server with the installed Workshop mods when SteamCMD cannot log in, download or confirm an update, for example while Steam Guard waits for confirmation. The skipped update is logged as a notice.
+- Only replaces mods whose files changed and keeps only the latest backup in `.wgsm-workshop-backups`. Previously every start copied all mods into a new backup and could fill the drive.
+- Leaves at least 5 GB free and skips the update otherwise, so SteamCMD does not lose its saved login on a full drive.
+- Retries the download once when SteamCMD exits before the login. Parallel Workshop jobs wait up to ten minutes for each other.
+
 ## 0.1.2 - 2026-10-29
 
 - Adds optional Workshop updates before server start, staged mod deployment, managed signing keys and rollback. See WORKSHOP.md.

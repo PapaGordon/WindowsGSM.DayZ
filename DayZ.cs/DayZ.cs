@@ -25,7 +25,7 @@ namespace WindowsGSM.Plugins
             name = "WindowsGSM.DayZ",
             author = "MeFriendos",
             description = "DayZ Dedicated Server with synchronized WindowsGSM settings and RPT console",
-            version = "0.1.2",
+            version = "0.1.3",
             url = "https://github.com/PapaGordon/WindowsGSM.DayZ",
             color = "#62734B"
         };
@@ -85,7 +85,8 @@ namespace WindowsGSM.Plugins
 
                 var startInfo = PrepareStart();
                 var workshop = await DayZWorkshopUpdater.Update(startInfo.WorkingDirectory,
-                    ServerPath.GetServersConfigs(_serverData.ServerID), ServerPath.GetBin("steamcmd"), "221100");
+                    ServerPath.GetServersConfigs(_serverData.ServerID), ServerPath.GetBin("steamcmd"), "221100",
+                    notice: message => Notice = message);
                 startInfo.Arguments = DayZWorkshopUpdater.MergeArguments(startInfo.Arguments, workshop);
                 startInfo.FileName = ServerPath.GetServersServerFiles(_serverData.ServerID, StartPath);
                 string profiles = ResolvePath(startInfo.WorkingDirectory,
@@ -724,8 +725,20 @@ namespace WindowsGSM.Plugins
                 + string.Concat(items.Select(i => " +workshop_download_item " + appId + " " + i.Id + " validate")) + " +quit";
         }
 
+        // Freier Platz, der nach Download und Austausch immer übrig bleiben muss.
+        // Bei voller Platte verliert SteamCMD sein gespeichertes Login (config.vdf) und fragt wieder nach Steam Guard.
+        internal static long Reserve = 5L * 1024 * 1024 * 1024;
+        internal static Func<string, long> FreeSpace = path =>
+        {
+            try { return new DriveInfo(Path.GetPathRoot(Path.GetFullPath(path))).AvailableFreeSpace; }
+            catch (Exception) { return long.MaxValue; }
+        };
+        internal static TimeSpan RetryDelay = TimeSpan.FromSeconds(15);
+        internal static TimeSpan LockWait = TimeSpan.FromMinutes(10);
+
+        // notice erhält eine Meldung, wenn der Server ohne Workshop-Update mit den vorhandenen Mods startet.
         internal static async Task<List<Item>> Update(string serverRoot, string configRoot, string steamRoot, string appId,
-            Func<string, string, Task<Tuple<int, string>>> runner = null)
+            Func<string, string, Task<Tuple<int, string>>> runner = null, Action<string> notice = null)
         {
             var items = Read(Path.Combine(configRoot, "WorkshopMods.cfg"));
             string state = Path.Combine(configRoot, "workshop-state-" + appId);
@@ -735,6 +748,21 @@ namespace WindowsGSM.Plugins
             if (items.Count == 0) return items;
             if (appId != "221100" && appId != "107410") throw new InvalidOperationException("Unsupported Workshop application.");
             NoLinks(serverRoot); NoLinks(configRoot); NoLinks(steamRoot);
+            try
+            {
+                await Download(serverRoot, state, steamRoot, appId, items, runner);
+            }
+            // Ohne halb fertigen Austausch startet der Server mit den installierten Mods statt gar nicht.
+            catch (Exception e) when (!File.Exists(pending) && Installed(serverRoot, items))
+            {
+                if (notice != null) notice("Workshop update skipped, the server uses the installed mods. " + e.Message);
+            }
+            return items;
+        }
+
+        private static async Task Download(string serverRoot, string state, string steamRoot, string appId, List<Item> items,
+            Func<string, string, Task<Tuple<int, string>>> runner)
+        {
             string exe = Path.Combine(steamRoot, "steamcmd.exe");
             if (!File.Exists(exe)) throw new FileNotFoundException("SteamCMD is missing. Install or update the server first.", exe);
             Directory.CreateDirectory(state);
@@ -744,18 +772,28 @@ namespace WindowsGSM.Plugins
             NoLinks(Path.Combine(steamRoot, "wgsm-workshop.lock"));
             NoLinks(Path.Combine(state, "update.lock"));
             // Shared across both plugins and WGSM instances using this SteamCMD directory.
-            using (var cacheLock = new FileStream(Path.Combine(steamRoot, "wgsm-workshop.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
-            using (var serverLock = new FileStream(Path.Combine(state, "update.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+            using (var cacheLock = await Lock(Path.Combine(steamRoot, "wgsm-workshop.lock")))
+            using (var serverLock = await Lock(Path.Combine(state, "update.lock")))
             {
-                string parameters = Parameters(cache, appId, items);
-                var result = await (runner == null ? Run(exe, parameters) : runner(exe, parameters));
+                foreach (string drive in new[] { cache, serverRoot, steamRoot })
+                    if (FreeSpace(drive) < Reserve)
+                        throw new IOException("Less than " + Gigabytes(Reserve) + " free on the drive of " + drive + ". Free up disk space.");
+                Tuple<int, string> result = null;
+                for (int attempt = 0; attempt < 2; attempt++)
+                {
+                    string parameters = Parameters(cache, appId, items);
+                    result = await (runner == null ? Run(exe, parameters) : runner(exe, parameters));
+                    // Einmal wiederholen, wenn SteamCMD gar nicht bis zum Login kam (z. B. noch laufende Instanz).
+                    if (result.Item1 == 0 || result.Item2.IndexOf("Logging in", StringComparison.OrdinalIgnoreCase) >= 0) break;
+                    if (attempt == 0) await Task.Delay(RetryDelay);
+                }
                 if (result.Item1 != 0) throw new InvalidOperationException("SteamCMD Workshop update failed. Check account access, Steam Guard and network connectivity.");
                 var sources = new Dictionary<string, string>();
                 foreach (var item in items)
                 {
                     // Exit code zero also occurs on failed Workshop commands. Require an item-specific receipt.
                     if (!Regex.IsMatch(result.Item2, @"Success\.\s+Downloaded item " + item.Id + @"\s+to\s+" , RegexOptions.IgnoreCase))
-                        throw new InvalidOperationException("SteamCMD did not confirm Workshop item " + item.Id + ". Server start was cancelled.");
+                        throw new InvalidOperationException("SteamCMD did not confirm Workshop item " + item.Id + ".");
                     var paths = new[] { cache, steamRoot }.Select(root => Path.Combine(root, "steamapps", "workshop", "content", appId, item.Id));
                     string source = paths.FirstOrDefault(path => Directory.Exists(path)
                         && result.Item2.IndexOf(path, StringComparison.OrdinalIgnoreCase) >= 0);
@@ -764,7 +802,37 @@ namespace WindowsGSM.Plugins
                 }
                 Deploy(serverRoot, state, appId, items, sources);
             }
-            return items;
+        }
+
+        // Wartet, bis ein anderer Workshop-Job mit demselben SteamCMD fertig ist.
+        private static async Task<FileStream> Lock(string path)
+        {
+            var deadline = DateTime.UtcNow + LockWait;
+            while (true)
+            {
+                try { return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+                catch (IOException) when (DateTime.UtcNow < deadline) { }
+                await Task.Delay(5000);
+            }
+        }
+
+        private static bool Installed(string root, List<Item> items)
+        {
+            try
+            {
+                return items.All(item =>
+                {
+                    string folder = Path.Combine(root, item.Folder);
+                    return Directory.Exists(folder) && (File.GetAttributes(folder) & FileAttributes.ReparsePoint) == 0
+                        && Directory.EnumerateFiles(folder, "*.pbo", SearchOption.AllDirectories).Any();
+                });
+            }
+            catch (Exception) { return false; }
+        }
+
+        private static string Gigabytes(long bytes)
+        {
+            return (bytes / 1024.0 / 1024 / 1024).ToString("0.0", CultureInfo.InvariantCulture) + " GB";
         }
 
         private static async Task<Tuple<int, string>> Run(string exe, string parameters)
@@ -819,21 +887,45 @@ namespace WindowsGSM.Plugins
                 return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
         }
 
-        // Back up every replaced folder/key. A failed batch is rolled back before starting the game.
+        // Fasst nur geänderte Mods an. Ein fehlgeschlagener Austausch wird vor dem Start zurückgerollt.
+        // Als Backup bleibt nur der letzte Austausch liegen, ältere werden danach gelöscht.
         internal static void Deploy(string root, string state, string appId, List<Item> items, Dictionary<string, string> sources)
         {
             NoLinks(root); NoLinks(state);
             string pending = Path.Combine(state, "pending.txt");
             if (File.Exists(pending)) throw new IOException("Workshop recovery is pending: " + pending);
             Directory.CreateDirectory(state);
-            string transaction = Path.Combine(root, ".wgsm-workshop-backups", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
-            string stage = Path.Combine(transaction, "prepared"), backup = Path.Combine(transaction, "previous");
-            NoLinks(transaction);
-            Directory.CreateDirectory(stage); Directory.CreateDirectory(backup);
-            var changes = new List<Tuple<string, string>>();
             string manifest = Path.Combine(state, "keys.txt");
             NoLinks(manifest); NoLinks(pending);
             if (Directory.Exists(manifest) || Directory.Exists(pending)) throw new IOException("Workshop state path is a directory.");
+            var oldKeys = ReadKeys(manifest, appId);
+            var changed = items.Where(item => !Unchanged(root, appId, item, sources[item.Id], oldKeys)).ToList();
+            if (changed.Count == 0) return;
+            long needed = changed.Sum(item => Size(sources[item.Id])) + Reserve;
+            long free = FreeSpace(root);
+            if (free < needed)
+                throw new IOException("Not enough disk space for the Workshop update: " + Gigabytes(needed) + " needed, " + Gigabytes(free) + " free.");
+            string backups = Path.Combine(root, ".wgsm-workshop-backups");
+            string transaction = Path.Combine(backups, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
+            NoLinks(transaction);
+            try
+            {
+                Activate(root, state, appId, changed, sources, oldKeys, transaction);
+            }
+            catch
+            {
+                // Vorbereitete Kopien nicht liegen lassen, solange keine Wiederherstellung offen ist.
+                if (!File.Exists(pending)) Remove(transaction);
+                throw;
+            }
+            Remove(Path.Combine(transaction, "prepared"));
+            foreach (string old in Directory.GetDirectories(backups))
+                if (!string.Equals(Path.GetFullPath(old), Path.GetFullPath(transaction), StringComparison.OrdinalIgnoreCase))
+                    Remove(old);
+        }
+
+        private static Dictionary<string, string> ReadKeys(string manifest, string appId)
+        {
             var oldKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (File.Exists(manifest))
                 foreach (string line in File.ReadAllLines(manifest))
@@ -844,6 +936,103 @@ namespace WindowsGSM.Plugins
                         throw new IOException("Invalid Workshop key inventory: " + manifest);
                     oldKeys.Add(parts[0], parts[1]);
                 }
+            return oldKeys;
+        }
+
+        // Gleiche Dateien (Name, Größe, Änderungszeit) und unveränderte Schlüssel: nichts zu tun.
+        private static bool Unchanged(string root, string appId, Item item, string source, Dictionary<string, string> oldKeys)
+        {
+            try
+            {
+                var wanted = Files(source);
+                var live = Files(Path.Combine(root, item.Folder));
+                if (wanted == null || live == null || wanted.Count != live.Count) return false;
+                foreach (var file in wanted)
+                {
+                    FileInfo other;
+                    if (!live.TryGetValue(file.Key, out other) || other.Length != file.Value.Length
+                        || other.LastWriteTimeUtc != file.Value.LastWriteTimeUtc) return false;
+                }
+                string prefix = "wgsm_" + appId + "_" + item.Id + "_";
+                var expected = wanted.Values.Where(f => f.Extension.Equals(".bikey", StringComparison.OrdinalIgnoreCase))
+                    .Select(f => prefix + f.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                var owned = oldKeys.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (expected.Count != owned.Count || expected.Except(owned, StringComparer.OrdinalIgnoreCase).Any()) return false;
+                return owned.All(name =>
+                {
+                    string key = Path.Combine(root, "keys", name);
+                    return File.Exists(key) && (File.GetAttributes(key) & FileAttributes.ReparsePoint) == 0 && Hash(key) == oldKeys[name];
+                });
+            }
+            catch (IOException) { return false; }
+            catch (UnauthorizedAccessException) { return false; }
+        }
+
+        // Alle Dateien eines Ordners mit relativem Pfad. null bei fehlendem Ordner oder Links darin.
+        private static Dictionary<string, FileInfo> Files(string folder)
+        {
+            var start = new DirectoryInfo(Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar));
+            if (!start.Exists || (start.Attributes & FileAttributes.ReparsePoint) != 0) return null;
+            var files = new Dictionary<string, FileInfo>(StringComparer.OrdinalIgnoreCase);
+            var open = new Stack<DirectoryInfo>();
+            open.Push(start);
+            while (open.Count > 0)
+                foreach (var entry in open.Pop().GetFileSystemInfos())
+                {
+                    if ((entry.Attributes & FileAttributes.ReparsePoint) != 0) return null;
+                    var directory = entry as DirectoryInfo;
+                    if (directory != null) open.Push(directory);
+                    else files[entry.FullName.Substring(start.FullName.Length)] = (FileInfo)entry;
+                }
+            return files;
+        }
+
+        private static long Size(string folder)
+        {
+            var files = Files(folder);
+            return files == null ? 0 : files.Values.Sum(f => f.Length);
+        }
+
+        // Löscht einen Ordner, ohne Links zu folgen. Fehler sind hier nicht kritisch.
+        private static void Remove(string path)
+        {
+            try
+            {
+                NoLinks(path);
+                if (Directory.Exists(path)) RemoveTree(new DirectoryInfo(path));
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        private static void RemoveTree(DirectoryInfo directory)
+        {
+            foreach (var entry in directory.GetFileSystemInfos())
+            {
+                var child = entry as DirectoryInfo;
+                if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    if (child != null) Directory.Delete(entry.FullName); else File.Delete(entry.FullName);
+                }
+                else if (child != null) RemoveTree(child);
+                else
+                {
+                    entry.Attributes = FileAttributes.Normal;
+                    entry.Delete();
+                }
+            }
+            directory.Attributes = FileAttributes.Directory;
+            directory.Delete();
+        }
+
+        private static void Activate(string root, string state, string appId, List<Item> items, Dictionary<string, string> sources,
+            Dictionary<string, string> oldKeys, string transaction)
+        {
+            string pending = Path.Combine(state, "pending.txt");
+            string manifest = Path.Combine(state, "keys.txt");
+            string stage = Path.Combine(transaction, "prepared"), backup = Path.Combine(transaction, "previous");
+            Directory.CreateDirectory(stage); Directory.CreateDirectory(backup);
+            var changes = new List<Tuple<string, string>>();
             var newKeys = new Dictionary<string, string>(oldKeys, StringComparer.OrdinalIgnoreCase);
             foreach (var item in items)
             {
